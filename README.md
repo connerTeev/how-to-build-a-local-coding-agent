@@ -78,32 +78,6 @@ Each version adds more features:
 5. **File Editor** — modify files
 6. **Code Search** — search your codebase with patterns
 
-```mermaid
-graph LR
-    subgraph "Application Progression"
-        A[chat.go<br/>Basic Chat] --> B[read.go<br/>+ File Reading]
-        B --> C[list_files.go<br/>+ Directory Listing]
-        C --> D[bash_tool.go<br/>+ Shell Commands]
-        D --> E[edit_tool.go<br/>+ File Editing]
-        E --> F[code_search_tool.go<br/>+ Code Search]
-    end
-    
-    subgraph "Tool Capabilities"
-        G[No Tools] --> H[read_file]
-        H --> I[read_file<br/>list_files]
-        I --> J[read_file<br/>list_files<br/>bash]
-        J --> K[read_file<br/>list_files<br/>bash<br/>edit_file]
-        K --> L[read_file<br/>list_files<br/>bash<br/>code_search]
-    end
-    
-    A -.-> G
-    B -.-> H
-    C -.-> I
-    D -.-> J
-    E -.-> K
-    F -.-> L
-```
-
 At the end, you’ll end up with a powerful local developer assistant!
 
 
