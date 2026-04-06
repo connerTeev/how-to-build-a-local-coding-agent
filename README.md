@@ -1,6 +1,6 @@
 # 🧠 Build Your Own Coding Agent via a Step-by-Step Workshop
 
-> This project is based on [How to Build a Coding Agent](https://github.com/ghuntley/how-to-build-a-coding-agent) by [Geoffrey Huntley].  
+> This project is based on [How to Build a Coding Agent](https://github.com/ghuntley/how-to-build-a-coding-agent) by Geoffrey Huntley.  
 > Modifications have been made to adapt it for local use.
 
 Welcome! 👋 This workshop will guide you through building your own **AI-powered coding assistant** — starting from a basic chatbot, and adding powerful tools like file reading, shell command execution, and code searching.
