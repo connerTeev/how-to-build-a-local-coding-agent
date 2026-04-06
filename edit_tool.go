@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/sashabaranov/go-openai"
 	"github.com/invopop/jsonschema"
 )
 
@@ -31,9 +31,11 @@ func main() {
 		log.SetPrefix("")
 	}
 
-	client := anthropic.NewClient()
+	config := openai.DefaultConfig("ollama")
+	config.BaseURL = "http://localhost:11434/v1" // Direct to your local Ollama instance
+	client := openai.NewClientWithConfig(config)
 	if *verbose {
-		log.Println("Anthropic client initialized")
+		log.Println("Local Ollama client initialized")
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -48,7 +50,7 @@ func main() {
 	if *verbose {
 		log.Printf("Initialized %d tools", len(tools))
 	}
-	agent := NewAgent(&client, getUserMessage, tools, *verbose)
+	agent := NewAgent(client, getUserMessage, tools, *verbose)
 	err := agent.Run(context.TODO())
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())

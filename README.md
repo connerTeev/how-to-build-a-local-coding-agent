@@ -4,6 +4,51 @@ Welcome! 👋 This workshop will guide you through building your own **AI-powere
 
 You don’t need to be an AI expert. Just follow along and build step-by-step!
 
+## 🌐 Local-First Approach
+
+This project is designed to be **Local-First** - meaning all operations happen locally on your machine without requiring internet connectivity or cloud services. You can run everything completely offline once you've set up your local environment.
+
+## 🛠️ What We're Building
+
+You’ll build 6 versions of a coding assistant. 
+
+Each version adds more features:
+
+1. **Basic Chat** — talk to Claude
+2. **File Reader** — read code files
+3. **File Explorer** — list files in folders
+4. **Command Runner** — run shell commands
+5. **File Editor** — modify files
+6. **Code Search** — search your codebase with patterns
+
+```mermaid
+graph LR
+    subgraph "Application Progression"
+        A[chat.go<br/>Basic Chat] --> B[read.go<br/>+ File Reading]
+        B --> C[list_files.go<br/>+ Directory Listing]
+        C --> D[bash_tool.go<br/>+ Shell Commands]
+        D --> E[edit_tool.go<br/>+ File Editing]
+        E --> F[code_search_tool.go<br/>+ Code Search]
+    end
+    
+    subgraph "Tool Capabilities"
+        G[No Tools] --> H[read_file]
+        H --> I[read_file<br/>list_files]
+        I --> J[read_file<br/>list_files<br/>bash]
+        J --> K[read_file<br/>list_files<br/>bash<br/>edit_file]
+        K --> L[read_file<br/>list_files<br/>bash<br/>code_search]
+    end
+    
+    A -.-> G
+    B -.-> H
+    C -.-> I
+    D -.-> J
+    E -.-> K
+    F -.-> L
+```
+
+At the end, you’ll end up with a powerful local developer assistant!
+
 🌐 **Want a detailed overview?** Check out the blog post: [ghuntley.com/agent](https://ghuntley.com/agent/)
 
 ---
@@ -70,18 +115,18 @@ At the end, you’ll end up with a powerful local developer assistant!
 Each agent works like this:
 
 1. Waits for your input
-2. Sends it to Claude
-3. Claude may respond directly or ask to use a tool
+2. Sends it to your local LLM (via Ollama)
+3. The local LLM may respond directly or ask to use a tool
 4. The agent runs the tool (e.g., read a file)
-5. Sends the result back to Claude
-6. Claude gives you the final answer
+5. Sends the result back to the local LLM
+6. The local LLM gives you the final answer
 
 We call this the **event loop** — it's like the agent's heartbeat.
 
 ```mermaid
 graph TB
     subgraph "Agent Architecture"
-        A[Agent] --> B[Anthropic Client]
+        A[Agent] --> B[Local LLM Client (Ollama)]
         A --> C[Tool Registry]
         A --> D[getUserMessage Function]
         A --> E[Verbose Logging]
@@ -93,12 +138,12 @@ graph TB
         H -->|Yes| G
         H -->|No| I[Add to Conversation]
         I --> J[runInference]
-        J --> K[Claude Response]
+        J --> K[Local LLM Response]
         K --> L{Tool Use?}
         L -->|No| M[Display Text]
         L -->|Yes| N[Execute Tools]
         N --> O[Collect Results]
-        O --> P[Send Results to Claude]
+        O --> P[Send Results to Local LLM]
         P --> J
         M --> G
     end
@@ -113,6 +158,37 @@ graph TB
         U -->|No| O
     end
 ```
+
+## 🚀 Getting Started (Local-First Setup)
+
+### ✅ Prerequisites
+
+* Go 1.24.2+ or [devenv](https://devenv.sh/) (recommended for easy setup)
+* [Ollama](https://ollama.com/) installed and running locally on port 11434
+* An [Anthropic API Key](https://www.anthropic.com/product/claude) (optional, for comparison purposes)
+
+### 🔧 Set Up Your Environment
+
+**Option 1: Recommended (using devenv)**
+
+```bash
+devenv shell  # Loads everything you need
+```
+
+**Option 2: Manual setup**
+
+```bash
+# Make sure Go is installed
+go mod tidy
+```
+
+### 🔐 Add Your API Key (Optional for Local-First)
+
+```bash
+export ANTHROPIC_API_KEY="your-api-key-here"
+```
+
+> Note: This project is designed to work completely locally with Ollama. The Anthropic API key is only needed if you want to compare with Claude directly.
 
 ## 🚀 Getting Started
 
@@ -231,6 +307,8 @@ go run code_search_tool.go
 1. `riddle.txt`: a fun text file to explore
 1. `AGENT.md`: info about the project environment
 
+> All sample files are local to your machine and don't require any internet connectivity to access.
+
 ---
 
 ## 🐞 Troubleshooting
@@ -290,6 +368,8 @@ Schema generation uses Go structs — so it’s easy to define and reuse.
 | **5** | `edit_tool.go`: File editing, safety checks      |
 | **6** | `code_search_tool.go`: Pattern search, ripgrep   |
 
+> All steps are designed to work completely locally. The tools use your local file system and don't require any internet connectivity.
+
 ---
 
 ## 🛠️ Developer Environment (Optional)
@@ -317,6 +397,8 @@ Once you complete the workshop, try building:
 * A web UI for your agent
 * Integration with other AI models
 
+> All of these extensions will continue to work in a local-first manner, using your local resources exclusively.
+
 ---
 
 ## 📦 Summary
@@ -327,6 +409,8 @@ This workshop helps you:
 * Learn to build smart assistants
 * Grow capabilities step-by-step
 * Practice using Claude and Go together
+
+> All operations happen locally on your machine. No internet connectivity required after initial setup.
 
 ---
 

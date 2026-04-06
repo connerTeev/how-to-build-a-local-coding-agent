@@ -31,7 +31,7 @@ func main() {
 
 	client := anthropic.NewClient()
 	if *verbose {
-		log.Println("Anthropic client initialized")
+		log.Println("Local client initialized")
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -44,9 +44,9 @@ func main() {
 
 	tools := []ToolDefinition{ReadFileDefinition, ListFilesDefinition}
 	if *verbose {
-		log.Printf("Initialized %d tools", len(tools))
+		log.Printf("Initialized %d local tools", len(tools))
 	}
-	agent := NewAgent(&client, getUserMessage, tools, *verbose)
+	agent := NewAgent(client, getUserMessage, tools, *verbose)
 	err := agent.Run(context.TODO())
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())

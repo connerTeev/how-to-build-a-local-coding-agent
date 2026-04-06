@@ -8,8 +8,42 @@ import (
 	"log"
 	"os"
 
-	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/sashabaranov/go-openai"
 )
+
+func RunLocalAgent(modelName string, userPrompt string) {
+	// 1. Point to your local 5080 (Ollama)
+	config := openai.DefaultConfig("local-key-not-needed")
+	config.BaseURL = "http://localhost:11434/v1"
+	client := openai.NewClientWithConfig(config)
+
+	// 2. Setup the request with the chosen model
+	resp, err := client.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: modelName,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    openai.ChatMessageRoleSystem,
+					Content: "You are a coding agent. Use tools to help the user. If you see a file needs fixing, use write_file.",
+				},
+				{
+					Role:    openai.ChatMessageRoleUser,
+					Content: userPrompt,
+				},
+			},
+			// Define tools here so the local model can 'see' them
+			Tools: GetLocalTools(), 
+		},
+	)
+
+	if err != nil {
+		fmt.Printf("ChatCompletion error: %v\n", err)
+		return
+	}
+
+	fmt.Println("Agent Response:", resp.Choices[0].Message.Content)
+}
 
 func main() {
 	verbose := flag.Bool("verbose", false, "enable verbose logging")
@@ -25,9 +59,11 @@ func main() {
 		log.SetPrefix("")
 	}
 
-	client := anthropic.NewClient()
+	config := openai.DefaultConfig("ollama")
+	config.BaseURL = "http://localhost:11434/v1" // Direct to your local Ollama instance
+	client := openai.NewClientWithConfig(config)
 	if *verbose {
-		log.Println("Anthropic client initialized")
+		log.Println("Local Ollama client initialized")
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -38,14 +74,14 @@ func main() {
 		return scanner.Text(), true
 	}
 
-	agent := NewAgent(&client, getUserMessage, *verbose)
+	agent := NewAgent(client, getUserMessage, *verbose)
 	err := agent.Run(context.TODO())
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
 	}
 }
 
-func NewAgent(client *anthropic.Client, getUserMessage func() (string, bool), verbose bool) *Agent {
+func NewAgent(client *openai.Client, getUserMessage func() (string, bool), verbose bool) *Agent {
 	return &Agent{
 		client:         client,
 		getUserMessage: getUserMessage,
@@ -54,18 +90,18 @@ func NewAgent(client *anthropic.Client, getUserMessage func() (string, bool), ve
 }
 
 type Agent struct {
-	client         *anthropic.Client
+	client         *openai.Client
 	getUserMessage func() (string, bool)
 	verbose        bool
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	conversation := []anthropic.MessageParam{}
+	conversation := []openai.ChatCompletionMessage{}
 
 	if a.verbose {
 		log.Println("Starting chat session")
 	}
-	fmt.Println("Chat with Claude (use 'ctrl-c' to quit)")
+	fmt.Println("Chat with OpenAI (use 'ctrl-c' to quit)")
 
 	for {
 		fmt.Print("\u001b[94mYou\u001b[0m: ")
@@ -89,11 +125,14 @@ func (a *Agent) Run(ctx context.Context) error {
 			log.Printf("User input received: %q", userInput)
 		}
 
-		userMessage := anthropic.NewUserMessage(anthropic.NewTextBlock(userInput))
+		userMessage := openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: userInput,
+		}
 		conversation = append(conversation, userMessage)
 
 		if a.verbose {
-			log.Printf("Sending message to Claude, conversation length: %d", len(conversation))
+			log.Printf("Sending message to OpenAI, conversation length: %d", len(conversation))
 		}
 
 		message, err := a.runInference(ctx, conversation)
@@ -103,17 +142,16 @@ func (a *Agent) Run(ctx context.Context) error {
 			}
 			return err
 		}
-		conversation = append(conversation, message.ToParam())
 
-		if a.verbose {
-			log.Printf("Received response from Claude with %d content blocks", len(message.Content))
-		}
+		if len(message.Choices) > 0 {
+			responseMessage := message.Choices[0].Message
+			conversation = append(conversation, responseMessage)
 
-		for _, content := range message.Content {
-			switch content.Type {
-			case "text":
-				fmt.Printf("\u001b[93mClaude\u001b[0m: %s\n", content.Text)
+			if a.verbose {
+				log.Printf("Received response from OpenAI with content: %s", responseMessage.Content)
 			}
+
+			fmt.Printf("\u001b[93mOpenAI\u001b[0m: %s\n", responseMessage.Content)
 		}
 	}
 
@@ -123,15 +161,16 @@ func (a *Agent) Run(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) runInference(ctx context.Context, conversation []anthropic.MessageParam) (*anthropic.Message, error) {
+func (a *Agent) runInference(ctx context.Context, conversation []openai.ChatCompletionMessage) (*openai.ChatCompletionResponse, error) {
 	if a.verbose {
-		log.Printf("Making API call to Claude with model: %s", anthropic.ModelClaudeOpus4_6)
+		log.Printf("Making API call to OpenAI model")
 	}
 
-	message, err := a.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaudeOpus4_6,
-		MaxTokens: int64(1024),
-		Messages:  conversation,
+	// Create a chat completion request
+	resp, err := a.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		Model:    "ollama", // Using ollama model
+		Messages: conversation,
+		MaxTokens: 1024,
 	})
 
 	if a.verbose {
@@ -142,5 +181,5 @@ func (a *Agent) runInference(ctx context.Context, conversation []anthropic.Messa
 		}
 	}
 
-	return message, err
+	return &resp, err
 }
