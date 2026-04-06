@@ -100,7 +100,7 @@ We call this the **event loop** — it's like the agent's heartbeat.
 ```mermaid
 graph TB
     subgraph "Agent Architecture"
-        A[Agent] --> B[Local LLM Client (Ollama)]
+        A[Agent] --> B[Local LLM Client]
         A --> C[Tool Registry]
         A --> D[getUserMessage Function]
         A --> E[Verbose Logging]
