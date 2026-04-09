@@ -1,4 +1,4 @@
-# 🧠 Build Your Own Coding Agent via a Step-by-Step Workshop
+# 🧠 Build Your Own Coding Agent via a Step-by-Step Workshop Using LLM's Locally
 
 > This project is based on [How to Build a Coding Agent](https://github.com/ghuntley/how-to-build-a-coding-agent) by Geoffrey Huntley.  
 > Modifications have been made to adapt it for local use.
