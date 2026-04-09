@@ -11,61 +11,68 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-func RunLocalAgent(modelName string, userPrompt string) {
-	// 1. Point to your local 5080 (Ollama)
-	config := openai.DefaultConfig("local-key-not-needed")
-	config.BaseURL = "http://localhost:11434/v1"
-	client := openai.NewClientWithConfig(config)
-
-	// 2. Setup the request with the chosen model
-	resp, err := client.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: modelName,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleSystem,
-					Content: "You are a coding agent. Use tools to help the user. If you see a file needs fixing, use write_file.",
-				},
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: userPrompt,
+// GetLocalTools defines the schema for the model's capabilities
+func GetLocalTools() []openai.Tool {
+	return []openai.Tool{
+		{
+			Type: openai.ToolTypeFunction,
+			Function: &openai.FunctionDefinition{
+				Name:        "write_file",
+				Description: "Write content to a file on disk",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"path":    map[string]interface{}{"type": "string", "description": "The file path"},
+						"content": map[string]interface{}{"type": "string", "description": "The text to write"},
+					},
+					"required": []string{"path", "content"},
 				},
 			},
-			// Define tools here so the local model can 'see' them
-			Tools: GetLocalTools(), 
 		},
-	)
-
-	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
-		return
 	}
-
-	fmt.Println("Agent Response:", resp.Choices[0].Message.Content)
 }
 
 func main() {
 	verbose := flag.Bool("verbose", false, "enable verbose logging")
+	baseURL := flag.String("base-url", "http://localhost:11434/v1", "Base URL for the local LLM API")
+	modelName := flag.String("model", "", "Specific model name to use (optional, will auto-detect if not provided)")
 	flag.Parse()
 
 	if *verbose {
 		log.SetOutput(os.Stderr)
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
-		log.Println("Verbose logging enabled")
 	} else {
 		log.SetOutput(os.Stdout)
 		log.SetFlags(0)
 		log.SetPrefix("")
 	}
 
-	config := openai.DefaultConfig("ollama")
-	config.BaseURL = "http://localhost:11434/v1" // Direct to your local Ollama instance
+	// 1. Setup Configuration
+	config := openai.DefaultConfig("")
+	config.BaseURL = *baseURL
+
+	// 2. Initialize Client
 	client := openai.NewClientWithConfig(config)
-	if *verbose {
-		log.Println("Local Ollama client initialized")
+
+	// 3. Fetch Model Name automatically if not specified
+	var actualModelName string
+	var err error
+	if *modelName != "" {
+		actualModelName = *modelName
+		if *verbose {
+			log.Printf("Using specified model: %s", actualModelName)
+		}
+	} else {
+		actualModelName, err = GetFirstAvailableModel(client)
+		if err != nil {
+			log.Fatalf("Error fetching model: %v", err)
+		}
+		if *verbose {
+			log.Printf("Automatically using model: %s", actualModelName)
+		}
 	}
 
+	// 4. Setup Input Scanner
 	scanner := bufio.NewScanner(os.Stdin)
 	getUserMessage := func() (string, bool) {
 		if !scanner.Scan() {
@@ -74,112 +81,88 @@ func main() {
 		return scanner.Text(), true
 	}
 
-	agent := NewAgent(client, getUserMessage, *verbose)
-	err := agent.Run(context.TODO())
+	// 5. Initialize and Run Agent
+	agent := NewAgent(client, actualModelName, getUserMessage, *verbose)
+	err = agent.Run(context.TODO())
 	if err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
 	}
 }
 
-func NewAgent(client *openai.Client, getUserMessage func() (string, bool), verbose bool) *Agent {
-	return &Agent{
-		client:         client,
-		getUserMessage: getUserMessage,
-		verbose:        verbose,
-	}
-}
+// --- Agent Logic ---
 
 type Agent struct {
 	client         *openai.Client
 	getUserMessage func() (string, bool)
 	verbose        bool
+	modelName      string
+}
+
+func NewAgent(client *openai.Client, modelName string, getUserMessage func() (string, bool), verbose bool) *Agent {
+	return &Agent{
+		client:         client,
+		modelName:      modelName,
+		getUserMessage: getUserMessage,
+		verbose:        verbose,
+	}
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	conversation := []openai.ChatCompletionMessage{}
-
-	if a.verbose {
-		log.Println("Starting chat session")
+	conversation := []openai.ChatCompletionMessage{
+		{
+			Role:    openai.ChatMessageRoleSystem,
+			Content: "You are a coding agent. Use tools to help the user. If you see a file needs fixing, use write_file.",
+		},
 	}
-	fmt.Println("Chat with OpenAI (use 'ctrl-c' to quit)")
+
+	fmt.Println("Chat with Ollama (use 'ctrl-c' to quit)")
 
 	for {
 		fmt.Print("\u001b[94mYou\u001b[0m: ")
 		userInput, ok := a.getUserMessage()
-		if !ok {
-			if a.verbose {
-				log.Println("User input ended, breaking from chat loop")
-			}
+		if !ok || userInput == "" {
 			break
 		}
 
-		// Skip empty messages
-		if userInput == "" {
-			if a.verbose {
-				log.Println("Skipping empty message")
-			}
-			continue
-		}
-
-		if a.verbose {
-			log.Printf("User input received: %q", userInput)
-		}
-
-		userMessage := openai.ChatCompletionMessage{
+		conversation = append(conversation, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
 			Content: userInput,
-		}
-		conversation = append(conversation, userMessage)
+		})
 
-		if a.verbose {
-			log.Printf("Sending message to OpenAI, conversation length: %d", len(conversation))
-		}
-
-		message, err := a.runInference(ctx, conversation)
+		resp, err := a.runInference(ctx, conversation)
 		if err != nil {
-			if a.verbose {
-				log.Printf("Error during inference: %v", err)
-			}
 			return err
 		}
 
-		if len(message.Choices) > 0 {
-			responseMessage := message.Choices[0].Message
-			conversation = append(conversation, responseMessage)
-
-			if a.verbose {
-				log.Printf("Received response from OpenAI with content: %s", responseMessage.Content)
-			}
-
-			fmt.Printf("\u001b[93mOpenAI\u001b[0m: %s\n", responseMessage.Content)
+		if len(resp.Choices) > 0 {
+			msg := resp.Choices[0].Message
+			conversation = append(conversation, msg)
+			fmt.Printf("\u001b[93mOpenAI\u001b[0m: %s\n", msg.Content)
+			
+			// Note: To actually execute write_file, you'd handle msg.ToolCalls here
 		}
-	}
-
-	if a.verbose {
-		log.Println("Chat session ended")
 	}
 	return nil
 }
 
 func (a *Agent) runInference(ctx context.Context, conversation []openai.ChatCompletionMessage) (*openai.ChatCompletionResponse, error) {
-	if a.verbose {
-		log.Printf("Making API call to OpenAI model")
-	}
-
-	// Create a chat completion request
 	resp, err := a.client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model:    "ollama", // Using ollama model
-		Messages: conversation,
+		Model:     a.modelName,
+		Messages:  conversation,
 		MaxTokens: 1024,
+		Tools:     GetLocalTools(),
 	})
-
-	if a.verbose {
-		if err != nil {
-			log.Printf("API call failed: %v", err)
-		} else {
-			log.Printf("API call successful, response received")
-		}
-	}
-
 	return &resp, err
+}
+
+func GetFirstAvailableModel(client *openai.Client) (string, error) {
+	ctx := context.Background()
+	models, err := client.ListModels(ctx)
+	if err != nil {
+		return "", err
+	}
+	if len(models.Models) == 0 {
+		return "", fmt.Errorf("no models found in Ollama")
+	}
+	return models.Models[0].ID, nil
 }

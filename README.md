@@ -92,7 +92,7 @@ At the end, you’ll end up with a powerful local developer assistant!
 Each agent works like this:
 
 1. Waits for your input
-2. Sends it to your local LLM (via Ollama)
+2. Sends it to your local LLM (via a local LLM server like Ollama, LM Studio, or other local LLM APIs)
 3. The local LLM may respond directly or ask to use a tool
 4. The agent runs the tool (e.g., read a file)
 5. Sends the result back to the local LLM
@@ -141,7 +141,7 @@ graph TB
 ### ✅ Prerequisites
 
 * Go 1.24.2+ or [devenv](https://devenv.sh/) (recommended for easy setup)
-* [Ollama](https://ollama.com/) installed and running locally on port 11434
+* A local LLM server (e.g., [Ollama](https://ollama.com/) installed and running locally on port 11434, or other local LLM servers)
 * An [Anthropic API Key](https://www.anthropic.com/product/claude) (optional, for comparison purposes)
 
 ### 🔧 Set Up Your Environment
@@ -165,7 +165,7 @@ go mod tidy
 export ANTHROPIC_API_KEY="your-api-key-here"
 ```
 
-> Note: This project is designed to work completely locally with Ollama. The Anthropic API key is only needed if you want to compare with Claude directly.
+> Note: This project is designed to work completely locally with local LLM servers. The Anthropic API key is only needed if you want to compare with Claude directly.
 
 ---
 
@@ -181,6 +181,11 @@ go run chat.go
 
 * ➡️ Try: “Hello!”
 * ➡️ Add `--verbose` to see detailed logs
+* ➡️ Use `--base-url` to specify different local LLM servers:
+  * For Ollama: `--base-url http://localhost:11434/v1`
+  * For LM Studio: `--base-url http://localhost:1234/v1`
+  * For other local servers: `--base-url http://localhost:8080/v1`
+* ➡️ Use `--model` to specify a specific model (e.g., `--model llama3` or `--model mistral`)
 
 ---
 
@@ -280,6 +285,13 @@ go run code_search_tool.go
 **Environment issues?**
 
 * Use `devenv shell` to avoid config problems
+
+**Local LLM connection issues?**
+
+* Make sure your local LLM server (e.g., Ollama, LM Studio) is running
+* Verify the base URL with `--base-url` flag matches your local LLM server configuration
+* For Ollama: `--base-url http://localhost:11434/v1`
+* For LM Studio: `--base-url http://localhost:1234/v1`
 
 ---
 
